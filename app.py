@@ -5,7 +5,7 @@ import pandas as pd
 
 @st.cache_resource
 def load_model():
-    fname = "flight_fare_model.pkl"   # or "flight_fare_model_small.pkl" if that's the exact name in your repo
+    fname = "SkyFare-Predictor.pkl"   # or "flight_fare_model_small.pkl" if that's the exact name in your repo
     try:
         # prefer joblib because model was saved with joblib.dump (supports compress)
         model = joblib.load(fname)
