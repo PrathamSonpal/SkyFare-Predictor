@@ -1,125 +1,78 @@
-# debug_app.py (replace your app.py with this for debugging)
+# app.py - SkyFare Predictor (production)
 import streamlit as st
-import os
 import pandas as pd
-import traceback
+import joblib
+import os
 
-st.set_page_config(page_title="SkyFare Predictor", layout="centered")
+st.set_page_config(page_title="SkyFare Predictor", page_icon="✈️", layout="centered")
 st.title("✈️ SkyFare Predictor")
-st.write("This debug page helps identify why the app shows a blank screen. Follow the messages below.")
+st.write("Predict airline ticket prices instantly using Machine Learning ✈️📊")
 
-# show environment info
-st.subheader("Environment & Files")
-try:
-    st.write("Python executable:", os.sys.executable)
-    st.write("Current working dir:", os.getcwd())
-    files = sorted(os.listdir("."))
-    st.write("Files in repo root (top 50):", files[:50])
-except Exception as e:
-    st.error("Failed to list files")
-    st.exception(e)
-
-# model load attempt with detailed errors
-st.subheader("Model load check")
-MODEL_NAMES = ["SkyFare-Predictor.pkl"]
-
-model = None
-model_name_used = None
-load_errors = []
-
-for fname in MODEL_NAMES:
-    if os.path.exists(fname):
-        st.write(f"Found candidate model file: `{fname}` (size: {os.path.getsize(fname)/1024/1024:.2f} MB)")
-    else:
-        st.write(f"Model not found: `{fname}`")
-
-# Try to load with joblib then pickle, show exceptions
-import importlib
-try:
-    joblib = importlib.import_module("joblib")
-except Exception:
-    joblib = None
-    st.warning("joblib not available in runtime (will try pickle).")
-
-for fname in MODEL_NAMES:
-    if not os.path.exists(fname):
-        continue
+@st.cache_resource
+def load_model():
+    fname = "SkyFare-Predictor.pkl" 
+    # try joblib then pickle
     try:
-        if joblib:
-            st.write(f"Trying joblib.load('{fname}') ...")
-            model = joblib.load(fname)
-            model_name_used = fname
-            st.success(f"Loaded model with joblib from {fname}")
-            break
-    except Exception as e:
-        st.error(f"joblib.load failed for {fname}")
-        st.text(traceback.format_exc())
-        load_errors.append(("joblib", fname, traceback.format_exc()))
-    try:
-        st.write(f"Trying pickle.load('{fname}') ...")
-        import pickle
-        with open(fname, "rb") as f:
-            model = pickle.load(f)
-        model_name_used = fname
-        st.success(f"Loaded model with pickle from {fname}")
-        break
-    except Exception as e:
-        st.error(f"pickle.load failed for {fname}")
-        st.text(traceback.format_exc())
-        load_errors.append(("pickle", fname, traceback.format_exc()))
+        return joblib.load(fname)
+    except Exception as e_joblib:
+        try:
+            import pickle
+            with open(fname, "rb") as f:
+                return pickle.load(f)
+        except Exception as e_pickle:
+            st.error("Failed to load model. Check model file and logs.")
+            raise RuntimeError(f"joblib error: {e_joblib}\n\npickle error: {e_pickle}")
 
-if model is None:
-    st.error("Model could not be loaded. See above errors.")
-    st.markdown("**Next steps:**")
-    st.markdown("- Check that the model file name (case-sensitive) in the repo root matches one of the names above.")
-    st.markdown("- If you used `joblib.dump(..., compress=...)`, load with `joblib.load`.")
-    st.markdown("- If the model file is huge (>25MB) GitHub may not have stored it; use a smaller model or host externally.")
-    st.markdown("- Paste the full exception texts into the chat and I will fix them.")
-else:
-    st.success(f"Model is ready from: {model_name_used}")
-    # quick smoke test predict (build a default input using model.feature_names_in_ if present)
-    st.subheader("Quick smoke-test prediction")
-    try:
-        # create a safe sample depending on what model expects
-        # try to get column names if transformer exists
-        sample = None
-        if hasattr(model, "named_steps"):
-            # pipeline: find transformer category names and create a dummy row
-            # fallback: try to get feature names from model if available
-            # We'll create a simple sample using defaults
-            sample = pd.DataFrame([{
-                "airline": "IndiGo",
-                "source_city": "Delhi",
-                "destination_city": "Mumbai",
-                "travel_class": "economy",
-                "stops_num": 0,
-                "duration_mins": 120,
-                "dep_hour": 9,
-                "dep_min": 30,
-                "arr_hour": 11,
-                "arr_min": 30,
-                "days_left": 15
-            }])
-        else:
-            # if raw model, skip
-            sample = None
+model = load_model()
 
-        if sample is not None:
-            st.write("Sample input used for prediction:")
-            st.write(sample)
-            pred = model.predict(sample)
-            st.success(f"Sample prediction: {pred}")
-        else:
-            st.write("No sample prediction attempted (model type unknown).")
+def get_categories():
+    try:
+        ohe = model.named_steps["transform"].transformers_[0][1]
+        cats = [list(map(str, c)) for c in ohe.categories_]
+        return cats
     except Exception:
-        st.error("Sample prediction failed. See trace below:")
-        st.text(traceback.format_exc())
+        return None
 
-# show captured load errors succinctly for copy/paste
-if load_errors:
-    st.subheader("Captured load errors (first two shown)")
-    for method, fname, tb in load_errors[:2]:
-        st.markdown(f"**{method} failed for {fname}:**")
-        st.code(tb[:4000])  # show first part
+cats = get_categories()
+airlines = cats[0] if cats else ["IndiGo","Air India","Vistara","SpiceJet"]
+sources  = cats[1] if cats else ["Delhi","Mumbai","Bengaluru"]
+dests    = cats[2] if cats else sources
 
-st.info("If you see errors above, copy the full traceback and paste here. I'll tell you the exact fix.")
+travel_classes = ["economy","business"]
+
+col1, col2 = st.columns(2)
+with col1:
+    airline = st.selectbox("Airline", airlines)
+    source_city = st.selectbox("Source City", sources)
+    travel_class = st.selectbox("Class", travel_classes)
+    dep_hour = st.slider("Departure Hour", 0, 23, 10)
+    dep_min  = st.slider("Departure Minute", 0, 59, 0)
+with col2:
+    destination_city = st.selectbox("Destination City", dests)
+    stops_num = st.number_input("Number of Stops", min_value=0, max_value=4, value=0)
+    duration_mins = st.number_input("Duration (minutes)", min_value=10, max_value=2000, value=120, step=5)
+    arr_hour = st.slider("Arrival Hour", 0, 23, 12)
+    arr_min  = st.slider("Arrival Minute", 0, 59, 0)
+
+days_left = st.number_input("Days left for journey", min_value=0, max_value=365, value=15)
+
+if st.button("Predict Ticket Price"):
+    input_df = pd.DataFrame([{
+        "airline": airline,
+        "source_city": source_city,
+        "destination_city": destination_city,
+        "travel_class": travel_class,
+        "stops_num": int(stops_num),
+        "duration_mins": int(duration_mins),
+        "dep_hour": int(dep_hour),
+        "dep_min": int(dep_min),
+        "arr_hour": int(arr_hour),
+        "arr_min": int(arr_min),
+        "days_left": int(days_left)
+    }])
+    try:
+        pred = model.predict(input_df)[0]
+        st.success(f"Estimated Ticket Price: ₹ {pred:,.2f}")
+    except Exception as e:
+        st.error("Prediction failed. Check model and feature names.")
+        st.exception(e)
