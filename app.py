@@ -53,7 +53,7 @@ st.markdown(
 # ------------------ LOAD MODEL ------------------ #
 @st.cache_resource
 def load_model():
-    fname = "flight_fare_model.pkl"  # make sure this exact file exists in repo root
+    fname = "SkyFare-Predictor.pkl"  # make sure this exact file exists in repo root
     try:
         return joblib.load(fname)
     except Exception as e_joblib:
