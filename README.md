@@ -21,3 +21,4 @@ The machine learning model is deployed using **Streamlit** and can be accessed t
 - Dropdown menus, sliders, number inputs  
 - Instant ticket price prediction  
 - Mobile and desktop friendly  
+
