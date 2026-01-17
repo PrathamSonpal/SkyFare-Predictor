@@ -4,7 +4,9 @@ This project predicts the fare of airline tickets based on various travel-relate
 The machine learning model is deployed using **Streamlit** and can be accessed through an interactive web interface.
 
 ---
+Link: https://skyfare-predictor.streamlit.com/
 
+---
 ## 📌 Features of the Project
 
 ### 🔹 Machine Learning Model
@@ -21,4 +23,5 @@ The machine learning model is deployed using **Streamlit** and can be accessed t
 - Dropdown menus, sliders, number inputs  
 - Instant ticket price prediction  
 - Mobile and desktop friendly  
+
 
